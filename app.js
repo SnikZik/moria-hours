@@ -83,6 +83,12 @@
     if (!isError) toast.timer = setTimeout(function () { el.toast.className = ''; el.toast.textContent = ''; }, 3500);
   }
 
+  function showMessage(text) {
+    $('note-text').textContent = text;
+    $('note').hidden = false;
+    $('note-close').focus();
+  }
+
   function setBusy(on) {
     busy = on;
     document.body.classList.toggle('busy', on);
@@ -95,6 +101,7 @@
     call('POST', action).then(function (s) {
       if (s.error === 'unauthorized') throw new Error('unauthorized');
       if (s.state) render(s);
+      if (s.message) showMessage(s.message);
       if (s.error === 'invalid_state') toast('המצב כבר התעדכן, בדקי שזה נכון');
       else if (s.error) toast('לא נשמר, נסי שוב', true);
       else toast(doneText + ' ' + new Date(s.now).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' }));
@@ -114,6 +121,7 @@
     });
   }
 
+  $('note-close').addEventListener('click', function () { $('note').hidden = true; });
   el.start.addEventListener('click', function () { press('start', 'נרשמה התחלה'); });
   el.pause.addEventListener('click', function () {
     if (current && current.state === 'break') press('break_end', 'נרשמה חזרה');

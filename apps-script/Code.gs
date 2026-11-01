@@ -20,6 +20,8 @@ var LABELS = {
   auto_close: 'משמרת לא נסגרה'
 };
 var DAYS = ['שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת', 'ראשון'];
+// Personal lines per action, injected by build.py from messages.local.json (not committed).
+var MESSAGES = /*__MESSAGES__*/ {};
 
 function doGet(e) {
   return respond_(handle_(e.parameter || {}));
@@ -48,6 +50,7 @@ function handle_(p) {
     var error = apply_(ss, p.action, now);
     var result = status_(ss, now, !error);
     if (error) result.error = error;
+    else result.message = pickMessage_(p.action, now);
     return result;
   } catch (err) {
     return { ok: false, error: 'server', detail: String(err) };
@@ -84,6 +87,14 @@ function apply_(ss, action, now) {
   appendLog_(ss, action, now);
   if (action === 'end') notifyManager_(ss);
   return null;
+}
+
+// Rotates by calendar day so each day gets the next line in the list.
+function pickMessage_(action, now) {
+  var lines = MESSAGES[action];
+  if (!lines || !lines.length) return '';
+  var day = Math.floor(new Date(dateKey_(now)).getTime() / 86400000);
+  return lines[day % lines.length];
 }
 
 function closeBreak_(ss, now) {

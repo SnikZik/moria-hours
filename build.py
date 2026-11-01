@@ -7,6 +7,8 @@ root = pathlib.Path(__file__).parent
 sheet_id = sys.argv[1]
 source = (root / "apps-script" / "Code.gs").read_text(encoding="utf-8")
 source = source.replace("__SHEET_ID__", sheet_id).replace("__KEY__", (root / ".secret").read_text().strip())
+messages = (root / "messages.local.json").read_text(encoding="utf-8")
+source = source.replace("/*__MESSAGES__*/ {}", messages.strip())
 escaped = "".join(c if ord(c) < 128 else "\\u%04x" % ord(c) for c in source)
 (root / "dist").mkdir(exist_ok=True)
 (root / "dist" / "Code.gs").write_text(escaped, encoding="ascii")
