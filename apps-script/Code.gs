@@ -47,10 +47,10 @@ function handle_(p) {
     var now = new Date();
     closeStale_(ss, now);
     if (!p.action || p.action === 'status') return status_(ss, now, true);
-    var error = apply_(ss, p.action, now);
-    var result = status_(ss, now, !error);
-    if (error) result.error = error;
-    else result.message = pickMessage_(p.action, now);
+    var applied = apply_(ss, p.action, now);
+    var result = status_(ss, now, !applied.error);
+    if (applied.error) result.error = applied.error;
+    else result.message = applied.message;
     return result;
   } catch (err) {
     return { ok: false, error: 'server', detail: String(err) };
@@ -67,8 +67,8 @@ function apply_(ss, action, now) {
     break_end: state === 'break',
     end: state === 'working' || state === 'break'
   };
-  if (!(action in allowed)) return 'bad_action';
-  if (!allowed[action]) return 'invalid_state';
+  if (!(action in allowed)) return { error: 'bad_action' };
+  if (!allowed[action]) return { error: 'invalid_state' };
 
   var hours = ss.getSheetByName(HOURS_TAB);
   if (action === 'start') {
@@ -84,17 +84,26 @@ function apply_(ss, action, now) {
     if (state === 'break') closeBreak_(ss, now);
     hours.getRange(hours.getLastRow(), 4).setValue(now);
   }
-  appendLog_(ss, action, now);
+  var message = pickMessage_(ss, action, now);
+  appendLog_(ss, action, now, message);
   if (action === 'end') notifyManager_(ss);
-  return null;
+  return { message: message };
 }
 
-// Rotates by calendar day so each day gets the next line in the list.
-function pickMessage_(action, now) {
-  var lines = MESSAGES[action];
-  if (!lines || !lines.length) return '';
-  var day = Math.floor(new Date(dateKey_(now)).getTime() / 86400000);
-  return lines[day % lines.length];
+// A line shown this month, on any button, is never shown again that month.
+// The log tab is the record. When a button's list runs out it shows nothing rather than repeat.
+function pickMessage_(ss, action, now) {
+  var log = ss.getSheetByName(LOG_TAB);
+  if (!log.getRange(1, 3).getValue()) log.getRange(1, 3).setValue('משפט').setFontWeight('bold');
+  var month = dateKey_(now).slice(0, 7);
+  var used = {};
+  if (log.getLastRow() >= 2) {
+    log.getRange(2, 1, log.getLastRow() - 1, 3).getValues().forEach(function (row) {
+      if (row[0] instanceof Date && dateKey_(row[0]).slice(0, 7) === month) used[row[2]] = true;
+    });
+  }
+  var open = (MESSAGES[action] || []).filter(function (line) { return !used[line]; });
+  return open.length ? open[Math.floor(Math.random() * open.length)] : '';
 }
 
 function closeBreak_(ss, now) {
@@ -157,8 +166,8 @@ function status_(ss, now, ok) {
   return out;
 }
 
-function appendLog_(ss, action, now) {
-  ss.getSheetByName(LOG_TAB).appendRow([now, LABELS[action]]);
+function appendLog_(ss, action, now, message) {
+  ss.getSheetByName(LOG_TAB).appendRow([now, LABELS[action], message || '']);
 }
 
 function notifyManager_(ss) {
@@ -189,7 +198,7 @@ function setup_(ss) {
   styleTab_(hours);
 
   var log = ss.insertSheet(LOG_TAB);
-  log.getRange(1, 1, 1, 2).setValues([['תאריך ושעה', 'פעולה']]);
+  log.getRange(1, 1, 1, 3).setValues([['תאריך ושעה', 'פעולה', 'משפט']]);
   log.getRange('A2:A').setNumberFormat('dd/MM/yyyy HH:mm:ss');
   log.setColumnWidth(1, 170);
   log.setColumnWidth(2, 170);
