@@ -2,3 +2,4 @@
 dist/
 .DS_Store
 messages.local.json
+.manager_email

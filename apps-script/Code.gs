@@ -4,7 +4,7 @@ var CONFIG = {
   SHEET_ID: '__SHEET_ID__',
   KEY: '__KEY__',
   EMPLOYEE: 'מוריה',
-  MANAGER_EMAIL: '', // empty = no email. Fill in to send a summary when a shift ends.
+  MANAGER_EMAIL: '__MANAGER_EMAIL__', // gets an email on every clock in and clock out
   TZ: 'Asia/Jerusalem',
   STALE_HOURS: 16 // an open shift older than this is treated as forgotten
 };
@@ -86,7 +86,7 @@ function apply_(ss, action, now) {
   }
   var message = pickMessage_(ss, action, now);
   appendLog_(ss, action, now, message);
-  if (action === 'end') notifyManager_(ss);
+  if (action === 'start' || action === 'end') notifyManager_(ss, action);
   return { message: message };
 }
 
@@ -170,19 +170,24 @@ function appendLog_(ss, action, now, message) {
   ss.getSheetByName(LOG_TAB).appendRow([now, LABELS[action], message || '']);
 }
 
-function notifyManager_(ss) {
+function notifyManager_(ss, action) {
   if (!CONFIG.MANAGER_EMAIL) return;
+  SpreadsheetApp.flush();
   var hours = ss.getSheetByName(HOURS_TAB);
   var row = hours.getLastRow();
   var cell = function (col) { return hours.getRange(row, col).getDisplayValue(); };
+  var isStart = action === 'start';
+  var body = 'תאריך ' + cell(1) + '\nהתחלה ' + cell(3);
+  if (!isStart) body += '\nסיום ' + cell(4) + '\nהפסקות ' + (cell(6) || '0') + ' דקות\nסה"כ ' + cell(7) + ' שעות';
   try {
     MailApp.sendEmail({
       to: CONFIG.MANAGER_EMAIL,
-      subject: 'שעות עבודה ' + CONFIG.EMPLOYEE + ' ' + cell(1),
-      body: 'התחלה ' + cell(3) + '\nסיום ' + cell(4) + '\nהפסקות ' + (cell(6) || '0') + ' דקות\nסה"כ ' + cell(7) + ' שעות\n\n' + ss.getUrl()
+      subject: CONFIG.EMPLOYEE + (isStart ? ' התחילה לעבוד ' + cell(3) : ' סיימה לעבוד ' + cell(4)),
+      body: body
     });
   } catch (err) {
     console.error(err);
+    hours.getRange(row, 8).setValue('מייל לא נשלח');
   }
 }
 

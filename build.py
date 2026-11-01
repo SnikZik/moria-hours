@@ -9,6 +9,7 @@ root = pathlib.Path(__file__).parent
 sheet_id = sys.argv[1]
 source = (root / "apps-script" / "Code.gs").read_text(encoding="utf-8")
 source = source.replace("__SHEET_ID__", sheet_id).replace("__KEY__", (root / ".secret").read_text().strip())
+source = source.replace("__MANAGER_EMAIL__", (root / ".manager_email").read_text().strip())
 messages = (root / "messages.local.json").read_text(encoding="utf-8")
 lines = [line for group in json.loads(messages).values() for line in group]
 repeats = [line for line, count in collections.Counter(lines).items() if count > 1]
